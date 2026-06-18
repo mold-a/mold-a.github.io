@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Star Classifier — Классификатор звёздных объектов</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css?v={{ v }}" />
+</head>
+<body>
+
+<!-- Animated starfield background -->
+<canvas id="starfield"></canvas>
+
+<!-- Header -->
+<header class="header">
+  <div class="header-inner">
+    <div class="logo">
+      <span class="logo-icon">✦</span>
+      <span class="logo-text">STAR<span class="logo-accent">CLASSIFIER</span></span>
+    </div>
+    <div class="header-meta">
+      <span class="badge">Random Forest</span>
+      <span class="badge badge-green">Точность: {{ accuracy }}%</span>
+    </div>
+  </div>
+</header>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="hero-content">
+    <h1 class="hero-title">Алгоритмический анализ<br /><span class="gradient-text">звёздных объектов</span></h1>
+    <p class="hero-subtitle">Введите фотометрические параметры звезды и получите мгновенную классификацию на основе модели машинного обучения.</p>
+  </div>
+</section>
+
+<!-- Main layout -->
+<main class="main-layout">
+
+  <!-- LEFT: Input form -->
+  <section class="card form-card">
+    <div class="card-header">
+      <h2 class="card-title"><span class="icon">⬡</span> Параметры звезды</h2>
+      <div class="examples-row">
+        <span class="examples-label">Примеры:</span>
+        {% for t, ex in examples.items() %}
+        <button class="example-btn" data-type="{{ t }}"
+          data-temp="{{ ex.temperature }}"
+          data-lum="{{ ex.luminosity }}"
+          data-rad="{{ ex.radius }}"
+          data-mag="{{ ex.abs_magnitude }}"
+          data-color="{{ ex.color }}"
+          data-spec="{{ ex.spectral_class }}">
+          {{ t }}
+        </button>
+        {% endfor %}
+      </div>
+    </div>
+
+    <form id="classify-form">
+
+      <div class="form-grid">
+
+        <!-- Temperature -->
+        <div class="form-group">
+          <label class="form-label">
+            <span class="label-icon">🌡</span>
+            Температура (K)
+          </label>
+          <div class="input-wrap">
+            <input type="number" id="temperature" name="temperature"
+              class="form-input" placeholder="напр. 5778" step="1" min="0" required />
+            <span class="input-unit">K</span>
+          </div>
+          <p class="form-hint">Температура поверхности звезды в Кельвинах</p>
+        </div>
+
+        <!-- Luminosity -->
+        <div class="form-group">
+          <label class="form-label">
+            <span class="label-icon">✦</span>
+            Светимость (L/L☉)
+          </label>
+          <div class="input-wrap">
+            <input type="number" id="luminosity" name="luminosity"
+              class="form-input" placeholder="напр. 1.0" step="any" min="0" required />
+            <span class="input-unit">L☉</span>
+          </div>
+          <p class="form-hint">Относительно светимости Солнца</p>
+        </div>
+
+        <!-- Radius -->
+        <div class="form-group">
+          <label class="form-label">
+            <span class="label-icon">◉</span>
+            Радиус (R/R☉)
+          </label>
+          <div class="input-wrap">
+            <input type="number" id="radius" name="radius"
+              class="form-input" placeholder="напр. 1.0" step="any" min="0" required />
+            <span class="input-unit">R☉</span>
+          </div>
+          <p class="form-hint">Относительно радиуса Солнца</p>
+        </div>
+
+        <!-- Absolute magnitude -->
+        <div class="form-group">
+          <label class="form-label">
+            <span class="label-icon">◈</span>
+            Абс. звёздная величина (Mv)
+          </label>
+          <div class="input-wrap">
+            <input type="number" id="abs_magnitude" name="abs_magnitude"
+              class="form-input" placeholder="напр. 4.83" step="any" required />
+            <span class="input-unit">Mv</span>
+          </div>
+          <p class="form-hint">Абсолютная визуальная звёздная величина</p>
+        </div>
+
+        <!-- Star color -->
+        <div class="form-group">
+          <label class="form-label">
+            <span class="label-icon">🎨</span>
+            Цвет звезды
+          </label>
+          <div class="select-wrap">
+            <select id="color" name="color" class="form-select" required>
+              <option value="" disabled selected>Выберите цвет...</option>
+              {% for c in colors %}
+              <option value="{{ c }}">{{ c }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <!-- Spectral class -->
+        <div class="form-group">
+          <label class="form-label">
+            <span class="label-icon">📊</span>
+            Спектральный класс
+          </label>
+          <div class="select-wrap">
+            <select id="spectral_class" name="spectral_class" class="form-select" required>
+              <option value="" disabled selected>Выберите класс...</option>
+              {% for s in specs %}
+              <option value="{{ s }}">Класс {{ s }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <p class="form-hint">По классификации Гарвардской спектральной шкалы</p>
+        </div>
+
+      </div>
+
+      <button type="submit" class="classify-btn" id="classify-btn">
+        <span class="btn-text">Классифицировать звезду</span>
+        <span class="btn-icon">→</span>
+        <span class="btn-loader" hidden>
+          <span class="spinner"></span>
+        </span>
+      </button>
+
+    </form>
+  </section>
+
+  <!-- RIGHT: Result panel -->
+  <section class="card result-card" id="result-card">
+
+    <!-- Empty state -->
+    <div class="result-empty" id="result-empty">
+      <div class="empty-visual">
+        <div class="empty-orbit">
+          <div class="empty-planet"></div>
+        </div>
+      </div>
+      <p class="empty-title">Ожидание данных</p>
+      <p class="empty-sub">Заполните параметры слева<br />и запустите классификацию</p>
+    </div>
+
+    <!-- Result content -->
+    <div class="result-content" id="result-content" hidden>
+
+      <div class="result-header">
+        <span class="result-status">ОБЪЕКТ ИДЕНТИФИЦИРОВАН</span>
+        <span class="result-id" id="result-id">—</span>
+      </div>
+
+      <div class="result-hero" id="result-hero">
+        <div class="result-star-visual" id="result-star-visual">
+          <div class="star-pulse" id="star-pulse"></div>
+          <div class="star-core" id="star-core"></div>
+        </div>
+        <div class="result-names">
+          <div class="result-en" id="result-en">—</div>
+          <div class="result-ru" id="result-ru">—</div>
+        </div>
+      </div>
+
+      <div class="confidence-block">
+        <div class="confidence-label">
+          <span>Уверенность классификации</span>
+          <span class="confidence-value" id="confidence-value">—%</span>
+        </div>
+        <div class="confidence-bar-bg">
+          <div class="confidence-bar-fill" id="confidence-bar"></div>
+        </div>
+      </div>
+
+      <div class="result-desc" id="result-desc">—</div>
+
+      <div class="result-facts" id="result-facts"></div>
+
+      <!-- All-class probability chart -->
+      <div class="probs-section">
+        <div class="probs-title">Распределение вероятностей по классам</div>
+        <div class="probs-chart" id="probs-chart"></div>
+      </div>
+
+      <!-- Input echo -->
+      <div class="input-echo" id="input-echo"></div>
+
+    </div>
+
+  </section>
+
+</main>
+
+<!-- Info cards -->
+<section class="info-section">
+  <div class="info-grid">
+    <div class="info-card">
+      <div class="info-icon">🌌</div>
+      <div class="info-label">Размер датасета</div>
+      <div class="info-value">240 звёзд</div>
+    </div>
+    <div class="info-card">
+      <div class="info-icon">🤖</div>
+      <div class="info-label">Алгоритм</div>
+      <div class="info-value">Random Forest</div>
+    </div>
+    <div class="info-card">
+      <div class="info-icon">🌲</div>
+      <div class="info-label">Деревьев в лесу</div>
+      <div class="info-value">100</div>
+    </div>
+    <div class="info-card">
+      <div class="info-icon">🎯</div>
+      <div class="info-label">Точность модели</div>
+      <div class="info-value">{{ accuracy }}%</div>
+    </div>
+    <div class="info-card">
+      <div class="info-icon">📐</div>
+      <div class="info-label">Признаков</div>
+      <div class="info-value">6</div>
+    </div>
+    <div class="info-card">
+      <div class="info-icon">⭐</div>
+      <div class="info-label">Классов звёзд</div>
+      <div class="info-value">6</div>
+    </div>
+  </div>
+</section>
+
+<!-- Star type reference -->
+<section class="reference-section">
+  <h2 class="section-title">Классы звёздных объектов</h2>
+  <div class="reference-grid">
+    <div class="ref-card" style="--accent: #CD853F">
+      <span class="ref-num">0</span>
+      <span class="ref-dot" style="background:#CD853F"></span>
+      <div>
+        <div class="ref-en">Brown Dwarf</div>
+        <div class="ref-ru">Коричневый карлик</div>
+      </div>
+    </div>
+    <div class="ref-card" style="--accent: #FF6B35">
+      <span class="ref-num">1</span>
+      <span class="ref-dot" style="background:#FF6B35"></span>
+      <div>
+        <div class="ref-en">Red Dwarf</div>
+        <div class="ref-ru">Красный карлик</div>
+      </div>
+    </div>
+    <div class="ref-card" style="--accent: #A8D8FF">
+      <span class="ref-num">2</span>
+      <span class="ref-dot" style="background:#A8D8FF"></span>
+      <div>
+        <div class="ref-en">White Dwarf</div>
+        <div class="ref-ru">Белый карлик</div>
+      </div>
+    </div>
+    <div class="ref-card" style="--accent: #FFD700">
+      <span class="ref-num">3</span>
+      <span class="ref-dot" style="background:#FFD700"></span>
+      <div>
+        <div class="ref-en">Main Sequence</div>
+        <div class="ref-ru">Гл. последовательность</div>
+      </div>
+    </div>
+    <div class="ref-card" style="--accent: #FF69B4">
+      <span class="ref-num">4</span>
+      <span class="ref-dot" style="background:#FF69B4"></span>
+      <div>
+        <div class="ref-en">Supergiant</div>
+        <div class="ref-ru">Сверхгигант</div>
+      </div>
+    </div>
+    <div class="ref-card" style="--accent: #FF3333">
+      <span class="ref-num">5</span>
+      <span class="ref-dot" style="background:#FF3333"></span>
+      <div>
+        <div class="ref-en">Hypergiant</div>
+        <div class="ref-ru">Гипергигант</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <p>Молдованов А.С. · ИДБ-24-12 · Модели и методы · 2025</p>
+  <p class="footer-sub">Датасет: <a href="https://www.kaggle.com/datasets/deepu1109/star-dataset" target="_blank">Kaggle — Star dataset</a></p>
+</footer>
+
+<script>
+  // Pass Jinja data to JS
+  const EXAMPLES = {{ examples | tojson }};
+</script>
+<script src="/static/script.js?v={{ v }}"></script>
+</body>
+</html>
